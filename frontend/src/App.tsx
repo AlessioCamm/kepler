@@ -1,122 +1,87 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, FormEvent, useRef } from 'react';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [message, setMessage] = useState('');
+  const [reply, setReply] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [streamMode, setStreamMode] = useState(true);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+
+    // Nettoyage d'un éventuel stream précédent
+    eventSourceRef.current?.close();
+
+    setLoading(true);
+    setReply('');
+
+    if (streamMode) {
+      const url = `http://localhost:3000/ask/stream?message=${encodeURIComponent(message)}`;
+      const evt = new EventSource(url);
+      eventSourceRef.current = evt;
+
+      evt.onmessage = (e) => {
+        setReply((prev) => prev + e.data);
+      };
+
+      evt.onerror = () => {
+        evt.close();
+        setLoading(false);
+      };
+    } else {
+      // --- Mode POST classique ---
+      try {
+        const res = await fetch('http://localhost:3000/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        setReply(data.reply);
+      } catch (err) {
+        setReply(`Erreur : ${(err as Error).message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+    <div className="min-h-screen bg-zinc-900 text-zinc-100 p-6 flex flex-col items-center">
+      <h1 className="text-2xl font-bold mb-2">Claude Pocket — Phase 0</h1>
+      <label className="mb-6 flex items-center gap-2 text-sm text-zinc-400">
+        <input
+          type="checkbox"
+          checked={streamMode}
+          onChange={(e) => setStreamMode(e.target.checked)}
+        />
+        Mode streaming (SSE)
+      </label>
+
+      <form onSubmit={handleSubmit} className="w-full max-w-2xl space-y-3">
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Pose ta question à Claude…"
+          rows={3}
+          className="w-full p-3 rounded-lg bg-zinc-800 border border-zinc-700 focus:outline-none focus:border-zinc-500"
+        />
         <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:cursor-not-allowed transition"
         >
-          Count is {count}
+          {loading ? '…' : 'Envoyer'}
         </button>
-      </section>
+      </form>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {reply && (
+        <div className="w-full max-w-2xl mt-6 p-4 rounded-lg bg-zinc-800 whitespace-pre-wrap">
+          {reply}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      )}
+    </div>
+  );
 }
-
-export default App
