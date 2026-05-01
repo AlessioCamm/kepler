@@ -26,4 +26,18 @@ export class AskService implements OnModuleInit {
       .map((block) => block.text)
       .join('\n');
   }
+
+  async *askStream(message: string): AsyncGenerator<string> {
+    const stream = this.client.messages.stream({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: message }],
+    });
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        yield event.delta.text;
+      }
+    }
+  }
 }
