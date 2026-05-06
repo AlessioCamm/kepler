@@ -1,4 +1,4 @@
-import { useState, FormEvent, useRef } from 'react';
+import { useState, type FormEvent, useRef } from 'react';
 
 export default function App() {
   const [message, setMessage] = useState('');
@@ -11,14 +11,13 @@ export default function App() {
     e.preventDefault();
     if (!message.trim()) return;
 
-    // Nettoyage d'un éventuel stream précédent
     eventSourceRef.current?.close();
 
     setLoading(true);
     setReply('');
 
     if (streamMode) {
-      const url = `http://localhost:3000/ask/stream?message=${encodeURIComponent(message)}`;
+      const url = `/ask/stream?message=${encodeURIComponent(message)}`;
       const evt = new EventSource(url);
       eventSourceRef.current = evt;
 
@@ -31,9 +30,8 @@ export default function App() {
         setLoading(false);
       };
     } else {
-      // --- Mode POST classique ---
       try {
-        const res = await fetch('http://localhost:3000/ask', {
+        const res = await fetch('/ask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message }),
