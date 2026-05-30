@@ -1,10 +1,12 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
+import { ChatMessageDto } from './dto/ask.dto';
 
 @Injectable()
 export class AskService implements OnModuleInit {
   private client: Anthropic;
+  private model: string;
 
   constructor(private config: ConfigService) {}
 
@@ -12,13 +14,14 @@ export class AskService implements OnModuleInit {
     this.client = new Anthropic({
       apiKey: this.config.getOrThrow<string>('ANTHROPIC_API_KEY'),
     });
+    this.model = this.config.get<string>('CLAUDE_MODEL') ?? 'claude-sonnet-4-6';
   }
 
-  async ask(message: string): Promise<string> {
+  async ask(messages: ChatMessageDto[]): Promise<string> {
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: this.model,
       max_tokens: 1024,
-      messages: [{ role: 'user', content: message }],
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
 
     return response.content
@@ -27,11 +30,11 @@ export class AskService implements OnModuleInit {
       .join('\n');
   }
 
-  async *askStream(message: string): AsyncGenerator<string> {
+  async *askStream(messages: ChatMessageDto[]): AsyncGenerator<string> {
     const stream = this.client.messages.stream({
-      model: 'claude-sonnet-4-6',
+      model: this.model,
       max_tokens: 1024,
-      messages: [{ role: 'user', content: message }],
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
 
     for await (const event of stream) {

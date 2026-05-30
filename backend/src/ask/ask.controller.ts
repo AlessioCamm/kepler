@@ -1,7 +1,7 @@
 import { Body, Controller, MessageEvent, Post, Query, Sse } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { AskService } from './ask.service';
-import { AskDto } from './dto/ask.dto';
+import { AskDto, ChatMessageDto } from './dto/ask.dto';
 
 @Controller('ask')
 export class AskController {
@@ -9,16 +9,17 @@ export class AskController {
 
   @Post()
   async ask(@Body() dto: AskDto): Promise<{ reply: string }> {
-    const reply = await this.askService.ask(dto.message);
+    const reply = await this.askService.ask(dto.messages);
     return { reply };
   }
 
   @Sse('stream')
-  stream(@Query('message') message: string): Observable<MessageEvent> {
+  stream(@Query('messages') messagesJson: string): Observable<MessageEvent> {
+    const messages: ChatMessageDto[] = JSON.parse(messagesJson);
     return new Observable((subscriber) => {
       (async () => {
         try {
-          for await (const chunk of this.askService.askStream(message)) {
+          for await (const chunk of this.askService.askStream(messages)) {
             subscriber.next({ data: chunk });
           }
           subscriber.complete();

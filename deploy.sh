@@ -26,6 +26,6 @@ echo "📦 Install prod deps..."
 ssh "${PI}" "cd ${PI_PATH}/backend && npm install --omit=dev"
 
 echo "🔄 Restart service..."
-ssh "${PI}" "sudo systemctl restart kepler-backend"
+ssh -t "${PI}" "sudo systemctl restart kepler-backend"
 
 echo "✅ Deployed."
